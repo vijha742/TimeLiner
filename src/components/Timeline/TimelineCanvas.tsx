@@ -13,7 +13,7 @@ import { EventCard } from '../Events/EventCard';
 export const TimelineCanvas = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { currentDate, zoomLevel, viewportWidth, viewportHeight } = useTimelineStore();
-  const { openModal } = useUIStore();
+  const { openModal, isMobile } = useUIStore();
   const filterState = useFilterStore();
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, date: currentDate });
@@ -66,6 +66,30 @@ export const TimelineCanvas = () => {
     if (e.deltaY < 0) useTimelineStore.getState().zoomIn();
     else useTimelineStore.getState().zoomOut();
   };
+
+  // --- touch handlers for mobile ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX, date: currentDate });
+    }
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const deltaX = e.touches[0].clientX - dragStart.x;
+    const deltaMs = -deltaX / zoomConfig.scale;
+    useTimelineStore
+      .getState()
+      .setCurrentDate(new Date(dragStart.date.getTime() + deltaMs));
+  };
+  
+  const handleTouchEnd = () => {
+    if (isDragging)
+      setDragStart({ x: 0, date: useTimelineStore.getState().currentDate });
+    setIsDragging(false);
+  };
+
   useEffect(() => {
     const onResize = () =>
       useTimelineStore
@@ -97,7 +121,7 @@ export const TimelineCanvas = () => {
   return (
     <div
       ref={canvasRef}
-      className="relative w-full h-full overflow-hidden select-none"
+      className="relative w-full h-full overflow-hidden select-none touch-manipulation"
       style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -105,6 +129,9 @@ export const TimelineCanvas = () => {
       onMouseLeave={handleMouseUp}
       onDoubleClick={handleDoubleClick}
       onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* ===== Z-LAYER 1: Tick marks (below the line) ===== */}
       {ticks.map((tick, i) => (
@@ -131,7 +158,7 @@ export const TimelineCanvas = () => {
               left: 0,
               top: `${centerY + 28}px`,
               transform: 'translateX(-50%)',
-              fontSize: '10px',
+              fontSize: isMobile ? '9px' : '10px',
               fontWeight: 500,
               fontFamily: "'JetBrains Mono', 'DM Sans', monospace",
               color: 'rgba(255,255,255,0.22)',

@@ -7,7 +7,7 @@ import { notificationService } from '../../services/notificationService';
 import { useUIStore } from '../../stores/uiStore';
 
 export const NotificationPanel = () => {
-  const { isNotificationPanelOpen, toggleNotificationPanel } = useUIStore();
+  const { isNotificationPanelOpen, toggleNotificationPanel, isMobile } = useUIStore();
   const [permission, setPermission] = useState<NotificationPermission>(
     notificationService.getPermission()
   );
@@ -58,18 +58,20 @@ export const NotificationPanel = () => {
     <div
       style={{
         position: 'fixed',
-        top: 0,
-        right: 0,
-        width: 380,
+        top: isMobile ? 0 : 0,
+        right: isMobile ? 0 : 0,
+        left: isMobile ? 0 : 'auto',
+        bottom: isMobile ? 0 : 'auto',
+        width: isMobile ? '100%' : 380,
         height: '100vh',
         background: 'rgba(12,12,16,0.97)',
         backdropFilter: 'blur(16px)',
-        borderLeft: '1px solid rgba(255,255,255,0.06)',
+        borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)',
         boxShadow: '-20px 0 60px rgba(0,0,0,0.4)',
         zIndex: 40,
         display: 'flex',
         flexDirection: 'column',
-        animation: 'slide-in-right 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+        animation: isMobile ? 'fade-in 0.2s ease-out' : 'slide-in-right 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
       {/* Header */}
@@ -78,7 +80,7 @@ export const NotificationPanel = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '18px 20px',
+          padding: isMobile ? '16px' : '18px 20px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           flexShrink: 0,
         }}
@@ -137,8 +139,8 @@ export const NotificationPanel = () => {
       {/* Permission Request */}
       {permission !== 'granted' && (
         <div style={{
-          margin: '16px 20px',
-          padding: 16,
+          margin: isMobile ? '12px 16px' : '16px 20px',
+          padding: isMobile ? 14 : 16,
           borderRadius: 8,
           background: 'rgba(59,130,246,0.08)',
           border: '1px solid rgba(59,130,246,0.2)',

@@ -32,7 +32,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 export const EventModal = () => {
-  const { isOpen, type, eventId, initialDate, closeModal } = useUIStore();
+  const { isOpen, type, eventId, initialDate, closeModal, isMobile } = useUIStore();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -187,32 +187,33 @@ export const EventModal = () => {
         background: 'rgba(0,0,0,0.6)',
         backdropFilter: 'blur(8px)',
         zIndex: 50,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16,
+        display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'center',
+        padding: isMobile ? 0 : 16,
         animation: 'fade-in 0.15s ease-out',
       }}
     >
       <div
         style={{
-          width: '100%', maxWidth: 560,
-          maxHeight: '88vh',
+          width: '100%', maxWidth: isMobile ? '100%' : 560,
+          maxHeight: isMobile ? '100%' : '88vh',
+          height: isMobile ? '100%' : 'auto',
           overflowY: 'auto',
-          borderRadius: 12,
+          borderRadius: isMobile ? 0 : 12,
           background: 'rgba(12,12,16,0.97)',
-          border: '1px solid rgba(255,255,255,0.06)',
-          boxShadow: '0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03)',
+          border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)',
+          boxShadow: isMobile ? 'none' : '0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03)',
         }}
       >
         {/* Header */}
         <div
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '18px 22px',
+            padding: isMobile ? '16px' : '18px 22px',
             borderBottom: '1px solid rgba(255,255,255,0.06)',
             position: 'sticky', top: 0,
             background: 'rgba(12,12,16,0.98)',
             backdropFilter: 'blur(12px)',
-            borderRadius: '12px 12px 0 0',
+            borderRadius: isMobile ? 0 : '12px 12px 0 0',
             zIndex: 10,
           }}
         >
@@ -235,7 +236,7 @@ export const EventModal = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <form onSubmit={handleSubmit} style={{ padding: isMobile ? '16px' : '20px 22px', display: 'flex', flexDirection: 'column', gap: isMobile ? 18 : 20 }}>
           {error && (
             <div style={{
               padding: '10px 14px', borderRadius: 6,

@@ -26,6 +26,10 @@ interface UIStore extends ModalState {
   // Keyboard shortcuts help
   showShortcutsHelp: boolean;
   toggleShortcutsHelp: () => void;
+  
+  // Mobile detection
+  isMobile: boolean;
+  setIsMobile: (isMobile: boolean) => void;
 }
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -76,5 +80,11 @@ export const useUIStore = create<UIStore>((set) => ({
   showShortcutsHelp: false,
   
   toggleShortcutsHelp: () => 
-    set((state) => ({ showShortcutsHelp: !state.showShortcutsHelp }))
+    set((state) => ({ showShortcutsHelp: !state.showShortcutsHelp })),
+  
+  // Mobile detection
+  isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+  
+  setIsMobile: (isMobile) =>
+    set({ isMobile })
 }));

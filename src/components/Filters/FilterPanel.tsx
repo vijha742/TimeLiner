@@ -27,7 +27,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export const FilterPanel = () => {
-  const { isFilterPanelOpen, toggleFilterPanel } = useUIStore();
+  const { isFilterPanelOpen, toggleFilterPanel, isMobile } = useUIStore();
   const {
     searchQuery,
     selectedTags,
@@ -114,15 +114,17 @@ export const FilterPanel = () => {
       <div
         style={{
           position: 'fixed',
-          top: 0,
-          right: 0,
-          height: '100%',
-          width: 340,
+          top: isMobile ? 0 : 0,
+          right: isMobile ? 0 : 0,
+          left: isMobile ? 0 : 'auto',
+          bottom: isMobile ? 0 : 'auto',
+          height: isMobile ? '100%' : '100%',
+          width: isMobile ? '100%' : 340,
           background: 'rgba(12,12,16,0.96)',
-          borderLeft: '1px solid rgba(255,255,255,0.06)',
+          borderLeft: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)',
           zIndex: 50,
           overflowY: 'auto',
-          animation: 'slide-in-right 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          animation: isMobile ? 'fade-in 0.2s ease-out' : 'slide-in-right 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         {/* Header */}
@@ -130,7 +132,7 @@ export const FilterPanel = () => {
           style={{
             position: 'sticky',
             top: 0,
-            padding: '18px 20px',
+            padding: isMobile ? '16px' : '18px 20px',
             background: 'rgba(12,12,16,0.98)',
             backdropFilter: 'blur(12px)',
             borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -194,7 +196,7 @@ export const FilterPanel = () => {
         </div>
 
         {/* Content */}
-        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ padding: isMobile ? '16px' : '20px', display: 'flex', flexDirection: 'column', gap: isMobile ? 20 : 24 }}>
           {/* Search */}
           <div>
             <label style={{

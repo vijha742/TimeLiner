@@ -7,7 +7,7 @@ import { isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import type { EventType } from '../../types';
 
 export const StatsPanel = () => {
-  const { isStatsPanelOpen, toggleStatsPanel } = useUIStore();
+  const { isStatsPanelOpen, toggleStatsPanel, isMobile } = useUIStore();
 
   const events = useLiveQuery(() => db.events.toArray(), []);
   const tags = useLiveQuery(() => db.tags.toArray(), []);
@@ -117,15 +117,17 @@ export const StatsPanel = () => {
       <div
         style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          height: '100%',
-          width: 340,
+          top: isMobile ? 0 : 0,
+          left: isMobile ? 0 : 0,
+          right: isMobile ? 0 : 'auto',
+          bottom: isMobile ? 0 : 'auto',
+          height: isMobile ? '100%' : '100%',
+          width: isMobile ? '100%' : 340,
           background: 'rgba(12,12,16,0.96)',
-          borderRight: '1px solid rgba(255,255,255,0.06)',
+          borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)',
           zIndex: 50,
           overflowY: 'auto',
-          animation: 'slide-in-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          animation: isMobile ? 'fade-in 0.2s ease-out' : 'slide-in-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         {/* Header */}
@@ -133,7 +135,7 @@ export const StatsPanel = () => {
           style={{
             position: 'sticky',
             top: 0,
-            padding: '18px 20px',
+            padding: isMobile ? '16px' : '18px 20px',
             background: 'rgba(12,12,16,0.98)',
             backdropFilter: 'blur(12px)',
             borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -171,7 +173,7 @@ export const StatsPanel = () => {
         </div>
 
         {/* Content */}
-        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ padding: isMobile ? '16px' : '20px', display: 'flex', flexDirection: 'column', gap: isMobile ? 20 : 24 }}>
           {/* Overview Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div

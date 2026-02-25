@@ -6,6 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { updateEvent } from '../../services/eventService';
 import { useTimelineStore } from '../../stores/timelineStore';
+import { useUIStore } from '../../stores/uiStore';
 import { getZoomConfig } from '../../utils/zoomLevels';
 
 interface EventCardProps {
@@ -22,6 +23,7 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
   const [dragStart, setDragStart] = useState<{ x: number; originalDate: Date } | null>(null);
 
   const { zoomLevel } = useTimelineStore();
+  const { isMobile } = useUIStore();
   const zoomConfig = getZoomConfig(zoomLevel);
 
   const tags = useLiveQuery(
@@ -188,7 +190,7 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
       >
         <div
           style={{
-            maxWidth: '120px',
+            maxWidth: isMobile ? '100px' : '120px',
             padding: '2px 6px',
             borderRadius: '3px',
             backgroundColor: hovered || dragging ? 'rgba(20,20,25,0.92)' : 'transparent',
@@ -197,7 +199,7 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            fontSize: '10px',
+            fontSize: isMobile ? '9px' : '10px',
             fontWeight: 600,
             letterSpacing: '0.01em',
             color: hovered || dragging ? '#fff' : 'rgba(255,255,255,0.6)',
@@ -225,8 +227,8 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
         >
           <div
             style={{
-              width: '260px',
-              padding: '14px',
+              width: isMobile ? '200px' : '260px',
+              padding: isMobile ? '12px' : '14px',
               borderRadius: '8px',
               backgroundColor: 'rgba(10, 10, 14, 0.96)',
               border: '1px solid rgba(255,255,255,0.08)',
@@ -252,7 +254,7 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontSize: '13px',
+                  fontSize: isMobile ? '12px' : '13px',
                   fontWeight: 700,
                   color: '#fff',
                   lineHeight: 1.35,
