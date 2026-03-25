@@ -13,7 +13,17 @@ import { EventCard } from '../Events/EventCard';
 export const TimelineCanvas = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { currentDate, zoomLevel, viewportWidth, viewportHeight } = useTimelineStore();
-  const { openModal, isMobile } = useUIStore();
+  const { 
+    openModal, 
+    isMobile,
+    isSelectingRegion,
+    regionStart,
+    regionEnd,
+    startRegionSelection,
+    updateRegionSelection,
+    endRegionSelection,
+    cancelRegionSelection
+  } = useUIStore();
   const filterState = useFilterStore();
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, date: currentDate });
@@ -41,10 +51,29 @@ export const TimelineCanvas = () => {
 
   // --- mouse handlers ---
   const handleMouseDown = (e: React.MouseEvent) => {
+    // If in region selection mode, start selecting
+    if (isSelectingRegion) {
+      const clickX = e.clientX - centerX;
+      const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
+      startRegionSelection(e.clientX, clickedDate);
+      return;
+    }
+    
+    // Otherwise, normal panning
     setIsDragging(true);
     setDragStart({ x: e.clientX, date: currentDate });
   };
+  
   const handleMouseMove = (e: React.MouseEvent) => {
+    // Update region selection if selecting
+    if (isSelectingRegion && regionStart) {
+      const clickX = e.clientX - centerX;
+      const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
+      updateRegionSelection(e.clientX, clickedDate);
+      return;
+    }
+    
+    // Otherwise, normal panning
     if (!isDragging) return;
     const deltaX = e.clientX - dragStart.x;
     const deltaMs = -deltaX / zoomConfig.scale;
@@ -52,12 +81,23 @@ export const TimelineCanvas = () => {
       .getState()
       .setCurrentDate(new Date(dragStart.date.getTime() + deltaMs));
   };
+  
   const handleMouseUp = () => {
+    // End region selection if selecting
+    if (isSelectingRegion && regionStart && regionEnd) {
+      endRegionSelection();
+      return;
+    }
+    
+    // Otherwise, normal pan end
     if (isDragging)
       setDragStart({ x: 0, date: useTimelineStore.getState().currentDate });
     setIsDragging(false);
   };
   const handleDoubleClick = (e: React.MouseEvent) => {
+    // Disable double-click when in region selection mode
+    if (isSelectingRegion) return;
+    
     const clickX = e.clientX - centerX;
     const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
     openModal('create', undefined, clickedDate);
@@ -79,6 +119,15 @@ export const TimelineCanvas = () => {
     e.preventDefault(); // Prevent native mobile zoom/scroll
     
     if (e.touches.length === 1) {
+      // Check if in region selection mode
+      if (isSelectingRegion) {
+        const clickX = e.touches[0].clientX - centerX;
+        const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
+        startRegionSelection(e.touches[0].clientX, clickedDate);
+        setInitialPinchDistance(null);
+        return;
+      }
+      
       // Single touch: pan
       setIsDragging(true);
       setDragStart({ x: e.touches[0].clientX, date: currentDate });
@@ -93,13 +142,23 @@ export const TimelineCanvas = () => {
   const handleTouchMove = (e: React.TouchEvent) => {
     e.preventDefault(); // Prevent native mobile zoom/scroll
     
-    if (e.touches.length === 1 && isDragging) {
+    if (e.touches.length === 1) {
+      // Check if in region selection mode
+      if (isSelectingRegion && regionStart) {
+        const clickX = e.touches[0].clientX - centerX;
+        const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
+        updateRegionSelection(e.touches[0].clientX, clickedDate);
+        return;
+      }
+      
       // Single touch: pan
-      const deltaX = e.touches[0].clientX - dragStart.x;
-      const deltaMs = -deltaX / zoomConfig.scale;
-      useTimelineStore
-        .getState()
-        .setCurrentDate(new Date(dragStart.date.getTime() + deltaMs));
+      if (isDragging) {
+        const deltaX = e.touches[0].clientX - dragStart.x;
+        const deltaMs = -deltaX / zoomConfig.scale;
+        useTimelineStore
+          .getState()
+          .setCurrentDate(new Date(dragStart.date.getTime() + deltaMs));
+      }
     } else if (e.touches.length === 2 && initialPinchDistance !== null) {
       // Two fingers: pinch to zoom
       const currentDistance = getTouchDistance(e.touches);
@@ -122,6 +181,12 @@ export const TimelineCanvas = () => {
     e.preventDefault(); // Prevent native mobile zoom/scroll
     
     if (e.touches.length === 0) {
+      // End region selection if selecting
+      if (isSelectingRegion && regionStart && regionEnd) {
+        endRegionSelection();
+        return;
+      }
+      
       // All touches ended
       if (isDragging)
         setDragStart({ x: 0, date: useTimelineStore.getState().currentDate });
@@ -143,6 +208,17 @@ export const TimelineCanvas = () => {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // Handle Escape key to cancel region selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSelectingRegion) {
+        cancelRegionSelection();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSelectingRegion, cancelRegionSelection]);
 
   // --- ticks ---
   const ticks = (() => {
@@ -166,8 +242,14 @@ export const TimelineCanvas = () => {
   return (
     <div
       ref={canvasRef}
+      data-timeline-canvas="true"
       className="relative w-full h-full overflow-hidden select-none touch-manipulation"
-      style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
+      style={{ 
+        cursor: isSelectingRegion 
+          ? 'crosshair' 
+          : (isDragging ? 'grabbing' : 'grab'),
+        touchAction: 'none' 
+      }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -350,6 +432,97 @@ export const TimelineCanvas = () => {
       >
         {formatDateForZoom(currentDate, zoomConfig.tickInterval)}
       </div>
+
+      {/* ===== Region Selection Overlay ===== */}
+      {isSelectingRegion && regionStart && (
+        <>
+          {/* Selection rectangle */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${Math.min(regionStart.x, regionEnd?.x || regionStart.x)}px`,
+              top: 0,
+              width: `${Math.abs((regionEnd?.x || regionStart.x) - regionStart.x)}px`,
+              height: `${viewportHeight}px`,
+              background: 'rgba(59, 130, 246, 0.15)',
+              border: '2px solid rgba(59, 130, 246, 0.5)',
+              zIndex: 50,
+              pointerEvents: 'none',
+            }}
+          />
+          
+          {/* Start date label */}
+          <div
+            style={{
+              position: 'absolute',
+              left: `${regionStart.x}px`,
+              top: `${centerY + 50}px`,
+              transform: 'translateX(-50%)',
+              fontSize: '11px',
+              fontWeight: 600,
+              fontFamily: "'JetBrains Mono', monospace",
+              color: '#3b82f6',
+              background: 'rgba(10, 10, 10, 0.9)',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid rgba(59, 130, 246, 0.5)',
+              zIndex: 51,
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {formatDateForZoom(regionStart.date, zoomConfig.tickInterval)}
+          </div>
+          
+          {/* End date label (if dragging) */}
+          {regionEnd && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${regionEnd.x}px`,
+                top: `${centerY + 50}px`,
+                transform: 'translateX(-50%)',
+                fontSize: '11px',
+                fontWeight: 600,
+                fontFamily: "'JetBrains Mono', monospace",
+                color: '#3b82f6',
+                background: 'rgba(10, 10, 10, 0.9)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(59, 130, 246, 0.5)',
+                zIndex: 51,
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {formatDateForZoom(regionEnd.date, zoomConfig.tickInterval)}
+            </div>
+          )}
+          
+          {/* Instruction text */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 20,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: '12px',
+              fontWeight: 600,
+              fontFamily: "'DM Sans', sans-serif",
+              color: '#3b82f6',
+              background: 'rgba(10, 10, 10, 0.95)',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: '1px solid rgba(59, 130, 246, 0.5)',
+              zIndex: 51,
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Click and drag to select region • Press ESC to cancel
+          </div>
+        </>
+      )}
     </div>
   );
 };

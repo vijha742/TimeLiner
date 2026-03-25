@@ -6,11 +6,16 @@ import { ShortcutsHelp } from './components/Layout/ShortcutsHelp';
 import { FilterPanel } from './components/Filters/FilterPanel';
 import { StatsPanel } from './components/Stats/StatsPanel';
 import { NotificationPanel } from './components/Notifications/NotificationPanel';
+import { ExportImageModal } from './components/Timeline/ExportImageModal';
+import { TemplateModal } from './components/Templates/TemplateModal';
 import { initializeDefaultTags } from './services/db';
 import { createSampleData } from './services/sampleData';
 import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts';
+import { useUIStore } from './stores/uiStore';
 
 function App() {
+  const { isTemplatePanelOpen, toggleTemplatePanel } = useUIStore();
+  
   // Initialize database on mount
   useEffect(() => {
     const init = async () => {
@@ -37,6 +42,8 @@ function App() {
       <FilterPanel />
       <StatsPanel />
       <NotificationPanel />
+      <ExportImageModal />
+      <TemplateModal isOpen={isTemplatePanelOpen} onClose={toggleTemplatePanel} />
     </div>
   );
 }
