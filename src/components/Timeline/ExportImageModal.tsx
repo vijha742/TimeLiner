@@ -51,25 +51,93 @@ export const ExportImageModal = () => {
     }
 
     const settings = QUALITY_SETTINGS[quality];
-    const options = {
-      quality: settings.quality,
-      pixelRatio: settings.scale,
-      cacheBust: true,
-    };
-
+    
     try {
+      // Wait for fonts to load before capturing
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+
+      // First try without skipFonts to see if it works
+      const basicOptions = {
+        quality: settings.quality,
+        pixelRatio: settings.scale,
+        cacheBust: true,
+      };
+
       switch (format) {
         case 'png':
-          return await toPng(timelineElement, options);
+          return await toPng(timelineElement, basicOptions);
         case 'jpeg':
-          return await toJpeg(timelineElement, options);
+          return await toJpeg(timelineElement, basicOptions);
         case 'svg':
-          return await toSvg(timelineElement, options);
+          return await toSvg(timelineElement, basicOptions);
         default:
           throw new Error('Unsupported format');
       }
     } catch (err) {
-      throw new Error(`Failed to capture timeline: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error('Capture failed:', err);
+      
+      // If it fails, try with skipFonts
+      try {
+        const skipFontsOptions = {
+          quality: settings.quality,
+          pixelRatio: settings.scale,
+          cacheBust: true,
+          skipFonts: true,
+        };
+        
+        switch (format) {
+          case 'png':
+            return await toPng(timelineElement, skipFontsOptions);
+          case 'jpeg':
+            return await toJpeg(timelineElement, skipFontsOptions);
+          case 'svg':
+            return await toSvg(timelineElement, skipFontsOptions);
+          default:
+            throw new Error('Unsupported format');
+        }
+      } catch (fallbackErr) {
+        // If still fails, try with embedded fonts disabled and different approach
+        console.error('Fallback capture also failed:', fallbackErr);
+        
+        try {
+          // Create a clone of the element with simplified styles
+          const clone = timelineElement.cloneNode(true) as HTMLElement;
+          clone.style.position = 'absolute';
+          clone.style.left = '-9999px';
+          clone.style.top = '0';
+          clone.style.width = `${timelineElement.offsetWidth}px`;
+          clone.style.height = `${timelineElement.offsetHeight}px`;
+          document.body.appendChild(clone);
+          
+          const simpleOptions = {
+            quality: settings.quality,
+            pixelRatio: settings.scale,
+            cacheBust: true,
+          };
+          
+          let result: string;
+          switch (format) {
+            case 'png':
+              result = await toPng(clone, simpleOptions);
+              break;
+            case 'jpeg':
+              result = await toJpeg(clone, simpleOptions);
+              break;
+            case 'svg':
+              result = await toSvg(clone, simpleOptions);
+              break;
+            default:
+              throw new Error('Unsupported format');
+          }
+          
+          document.body.removeChild(clone);
+          return result;
+        } catch (cloneErr) {
+          throw new Error(`Failed to capture timeline: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+      }
     }
   };
 

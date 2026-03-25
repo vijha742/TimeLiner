@@ -21,11 +21,11 @@ export const TimelineCanvas = () => {
     regionEnd,
     startRegionSelection,
     updateRegionSelection,
-    endRegionSelection,
     cancelRegionSelection
   } = useUIStore();
   const filterState = useFilterStore();
   const [isDragging, setIsDragging] = useState(false);
+  const [isSelectingDrag, setIsSelectingDrag] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, date: currentDate });
   const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
 
@@ -49,13 +49,20 @@ export const TimelineCanvas = () => {
       : [];
   const visibleEvents = positionedEvents.filter((e) => isEventVisible(e, viewportWidth));
 
+  const getRelativeX = (clientX: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    return clientX - (rect?.left ?? 0);
+  };
+
   // --- mouse handlers ---
   const handleMouseDown = (e: React.MouseEvent) => {
     // If in region selection mode, start selecting
     if (isSelectingRegion) {
-      const clickX = e.clientX - centerX;
+      const relativeX = getRelativeX(e.clientX);
+      const clickX = relativeX - centerX;
       const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
-      startRegionSelection(e.clientX, clickedDate);
+      startRegionSelection(relativeX, clickedDate);
+      setIsSelectingDrag(true);
       return;
     }
     
@@ -66,10 +73,11 @@ export const TimelineCanvas = () => {
   
   const handleMouseMove = (e: React.MouseEvent) => {
     // Update region selection if selecting
-    if (isSelectingRegion && regionStart) {
-      const clickX = e.clientX - centerX;
+    if (isSelectingRegion && isSelectingDrag) {
+      const relativeX = getRelativeX(e.clientX);
+      const clickX = relativeX - centerX;
       const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
-      updateRegionSelection(e.clientX, clickedDate);
+      updateRegionSelection(relativeX, clickedDate);
       return;
     }
     
@@ -82,10 +90,16 @@ export const TimelineCanvas = () => {
       .setCurrentDate(new Date(dragStart.date.getTime() + deltaMs));
   };
   
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
     // End region selection if selecting
-    if (isSelectingRegion && regionStart && regionEnd) {
-      endRegionSelection();
+    if (isSelectingRegion && isSelectingDrag) {
+      const relativeX = getRelativeX(e.clientX);
+      const clickX = relativeX - centerX;
+      const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
+      updateRegionSelection(relativeX, clickedDate);
+      // Don't call endRegionSelection() here - keep the selection mode active
+      // so the overlay stays visible until the user closes the modal
+      setIsSelectingDrag(false);
       return;
     }
     
@@ -102,6 +116,16 @@ export const TimelineCanvas = () => {
     const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
     openModal('create', undefined, clickedDate);
   };
+  
+  // Only end panning when mouse leaves, NOT region selection
+  const handleMouseLeave = () => {
+    if (isDragging) {
+      setDragStart({ x: 0, date: useTimelineStore.getState().currentDate });
+      setIsDragging(false);
+    }
+    // Note: We do NOT end region selection here - it should stay active until user releases mouse
+  };
+  
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     if (e.deltaY < 0) useTimelineStore.getState().zoomIn();
@@ -121,9 +145,11 @@ export const TimelineCanvas = () => {
     if (e.touches.length === 1) {
       // Check if in region selection mode
       if (isSelectingRegion) {
-        const clickX = e.touches[0].clientX - centerX;
+        const relativeX = getRelativeX(e.touches[0].clientX);
+        const clickX = relativeX - centerX;
         const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
-        startRegionSelection(e.touches[0].clientX, clickedDate);
+        startRegionSelection(relativeX, clickedDate);
+        setIsSelectingDrag(true);
         setInitialPinchDistance(null);
         return;
       }
@@ -144,10 +170,11 @@ export const TimelineCanvas = () => {
     
     if (e.touches.length === 1) {
       // Check if in region selection mode
-      if (isSelectingRegion && regionStart) {
-        const clickX = e.touches[0].clientX - centerX;
+      if (isSelectingRegion && isSelectingDrag) {
+        const relativeX = getRelativeX(e.touches[0].clientX);
+        const clickX = relativeX - centerX;
         const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
-        updateRegionSelection(e.touches[0].clientX, clickedDate);
+        updateRegionSelection(relativeX, clickedDate);
         return;
       }
       
@@ -182,8 +209,13 @@ export const TimelineCanvas = () => {
     
     if (e.touches.length === 0) {
       // End region selection if selecting
-      if (isSelectingRegion && regionStart && regionEnd) {
-        endRegionSelection();
+      if (isSelectingRegion && isSelectingDrag && regionStart) {
+        const relativeX = regionEnd?.x ?? regionStart.x;
+        const clickX = relativeX - centerX;
+        const clickedDate = pixelsToDate(clickX, currentDate, zoomConfig.scale);
+        updateRegionSelection(relativeX, clickedDate);
+        // Don't call endRegionSelection() here - keep the selection mode active
+        setIsSelectingDrag(false);
         return;
       }
       
@@ -213,6 +245,7 @@ export const TimelineCanvas = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isSelectingRegion) {
+        setIsSelectingDrag(false);
         cancelRegionSelection();
       }
     };
@@ -253,7 +286,7 @@ export const TimelineCanvas = () => {
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       onDoubleClick={handleDoubleClick}
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}

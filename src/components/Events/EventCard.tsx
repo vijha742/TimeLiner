@@ -23,7 +23,7 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
   const [dragStart, setDragStart] = useState<{ x: number; originalDate: Date } | null>(null);
 
   const { zoomLevel } = useTimelineStore();
-  const { isMobile } = useUIStore();
+  const { isMobile, isSelectingRegion } = useUIStore();
   const zoomConfig = getZoomConfig(zoomLevel);
 
   const tags = useLiveQuery(
@@ -55,6 +55,9 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
   const handleDragStart = (e: React.MouseEvent) => {
     // Don't allow dragging recurring instances (only edit the parent)
     if (event.originalEventId) return;
+
+    // Don't allow event dragging when in region selection mode
+    if (isSelectingRegion) return;
 
     e.stopPropagation();
     setDragging(true);
@@ -148,7 +151,7 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
       {/* Pin dot */}
       <div
         onClick={() => {
-          if (!dragging && onClick) onClick();
+          if (!dragging && onClick && !isSelectingRegion) onClick();
         }}
         onMouseDown={handleDragStart}
         onMouseMove={handleDragMove}
@@ -165,13 +168,14 @@ export const EventCard = ({ event, centerY, onClick }: EventCardProps) => {
           borderRadius: '50%',
           backgroundColor: tagColor,
           border: hovered || dragging ? '2px solid rgba(255,255,255,0.9)' : '2px solid rgba(0,0,0,0.5)',
-          cursor: event.originalEventId ? 'pointer' : (dragging ? 'grabbing' : 'grab'),
+          cursor: isSelectingRegion ? 'crosshair' : (event.originalEventId ? 'pointer' : (dragging ? 'grabbing' : 'grab')),
           zIndex: hovered || dragging ? 30 : 10,
           boxShadow: hovered || dragging
             ? `0 0 0 3px ${tagColor}30, 0 0 14px ${tagColor}50`
             : `0 1px 4px rgba(0,0,0,0.5)`,
           transition: dragging ? 'none' : 'transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
           transform: (hovered && !dragging) ? 'scale(1.4)' : dragging ? 'scale(1.2)' : 'scale(1)',
+          pointerEvents: isSelectingRegion ? 'none' : 'auto',
         }}
       />
 
