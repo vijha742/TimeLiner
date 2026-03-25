@@ -17,6 +17,7 @@ export const TimelineCanvas = () => {
   const filterState = useFilterStore();
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, date: currentDate });
+  const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
 
   const zoomConfig = getZoomConfig(zoomLevel);
   const centerY = viewportHeight / 2;
@@ -68,26 +69,70 @@ export const TimelineCanvas = () => {
   };
 
   // --- touch handlers for mobile ---
+  const getTouchDistance = (touches: React.TouchList) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault(); // Prevent native mobile zoom/scroll
+    
     if (e.touches.length === 1) {
+      // Single touch: pan
       setIsDragging(true);
       setDragStart({ x: e.touches[0].clientX, date: currentDate });
+      setInitialPinchDistance(null);
+    } else if (e.touches.length === 2) {
+      // Two fingers: pinch to zoom
+      setIsDragging(false);
+      setInitialPinchDistance(getTouchDistance(e.touches));
     }
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    const deltaX = e.touches[0].clientX - dragStart.x;
-    const deltaMs = -deltaX / zoomConfig.scale;
-    useTimelineStore
-      .getState()
-      .setCurrentDate(new Date(dragStart.date.getTime() + deltaMs));
+    e.preventDefault(); // Prevent native mobile zoom/scroll
+    
+    if (e.touches.length === 1 && isDragging) {
+      // Single touch: pan
+      const deltaX = e.touches[0].clientX - dragStart.x;
+      const deltaMs = -deltaX / zoomConfig.scale;
+      useTimelineStore
+        .getState()
+        .setCurrentDate(new Date(dragStart.date.getTime() + deltaMs));
+    } else if (e.touches.length === 2 && initialPinchDistance !== null) {
+      // Two fingers: pinch to zoom
+      const currentDistance = getTouchDistance(e.touches);
+      const distanceRatio = currentDistance / initialPinchDistance;
+      
+      // Zoom threshold to prevent jittery behavior
+      if (distanceRatio > 1.1) {
+        // Pinch out - zoom in
+        useTimelineStore.getState().zoomIn();
+        setInitialPinchDistance(currentDistance);
+      } else if (distanceRatio < 0.9) {
+        // Pinch in - zoom out
+        useTimelineStore.getState().zoomOut();
+        setInitialPinchDistance(currentDistance);
+      }
+    }
   };
   
-  const handleTouchEnd = () => {
-    if (isDragging)
-      setDragStart({ x: 0, date: useTimelineStore.getState().currentDate });
-    setIsDragging(false);
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault(); // Prevent native mobile zoom/scroll
+    
+    if (e.touches.length === 0) {
+      // All touches ended
+      if (isDragging)
+        setDragStart({ x: 0, date: useTimelineStore.getState().currentDate });
+      setIsDragging(false);
+      setInitialPinchDistance(null);
+    } else if (e.touches.length === 1 && !isDragging) {
+      // Went from 2 touches to 1 - resume panning
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX, date: useTimelineStore.getState().currentDate });
+      setInitialPinchDistance(null);
+    }
   };
 
   useEffect(() => {
@@ -122,7 +167,7 @@ export const TimelineCanvas = () => {
     <div
       ref={canvasRef}
       className="relative w-full h-full overflow-hidden select-none touch-manipulation"
-      style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+      style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
