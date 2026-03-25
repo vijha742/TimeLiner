@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { X, Calendar, Clock, Flag, Repeat, Tag as TagIcon, Bell } from 'lucide-react';
+import { X, Calendar, Clock, Flag, Repeat, Tag as TagIcon, Bell, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUIStore } from '../../stores/uiStore';
 import { db } from '../../services/db';
 import { createEvent, updateEvent, deleteEvent } from '../../services/eventService';
+import { applyTemplate, createTemplateFromEvent } from '../../services/templateService';
 import type { EventType, RecurrenceFrequency, TimelineEvent } from '../../types';
 
 /* ── shared inline styles ── */
@@ -56,6 +57,8 @@ export const EventModal = () => {
   const [error, setError] = useState('');
 
   const tags = useLiveQuery(() => db.tags.toArray(), []);
+  const templates = useLiveQuery(() => db.templates.toArray(), []);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   const existingEvent = useLiveQuery(
     async () => {
@@ -90,12 +93,83 @@ export const EventModal = () => {
         }
         setRecurrenceCount(existingEvent.recurrence.count);
       }
+      setSelectedTemplateId('');
     } else if (initialDate) {
       setStartDate(format(initialDate, 'yyyy-MM-dd'));
+      setSelectedTemplateId('');
     } else {
       setStartDate(format(new Date(), 'yyyy-MM-dd'));
+      setSelectedTemplateId('');
     }
   }, [existingEvent, initialDate]);
+
+  const handleApplyTemplate = async (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+
+    try {
+      const baseDate = startDate
+        ? new Date(`${startDate}T${startTime || '09:00'}`)
+        : new Date();
+
+      const templateData = await applyTemplate(templateId, baseDate);
+      if (templateData.title) setTitle(templateData.title);
+      setDescription(templateData.description || '');
+      if (templateData.type) {
+        setEventType(templateData.type);
+        setIsRecurring(templateData.type === 'recurring');
+      }
+      setSelectedTags(templateData.tags || []);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to apply template');
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!title.trim()) {
+      setError('Add a title before saving as template');
+      return;
+    }
+
+    const templateName = prompt('Template name', `${title.trim()} Template`);
+    if (!templateName || !templateName.trim()) return;
+
+    try {
+      const start = new Date(`${startDate}T${startTime}`);
+      const end = (eventType === 'duration' || isRecurring) && endDate && endTime
+        ? new Date(`${endDate}T${endTime}`)
+        : undefined;
+
+      const eventSnapshot: TimelineEvent = {
+        id: 'temp-event',
+        title: title.trim(),
+        description: description.trim() || undefined,
+        type: isRecurring ? 'recurring' : eventType,
+        startDate: start,
+        endDate: end,
+        tags: selectedTags,
+        remindAt: undefined,
+        recurrence: isRecurring
+          ? {
+              frequency: recurrenceFreq,
+              interval: recurrenceInterval,
+              endDate: recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
+              count: recurrenceCount,
+            }
+          : undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await createTemplateFromEvent(eventSnapshot, templateName.trim());
+      setError('');
+      alert('Template saved');
+    } catch (err) {
+      console.error(err);
+      setError('Failed to save template');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,7 +237,7 @@ export const EventModal = () => {
     setRemindDate(''); setRemindTime('09:00');
     setIsRecurring(false); setRecurrenceFreq('weekly');
     setRecurrenceInterval(1); setRecurrenceEndDate('');
-    setRecurrenceCount(undefined); setError('');
+    setRecurrenceCount(undefined); setError(''); setSelectedTemplateId('');
   };
 
   const toggleTag = (tagId: string) => {
@@ -275,6 +349,28 @@ export const EventModal = () => {
               onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.boxShadow = 'none'; }}
             />
           </div>
+
+          {/* Template Loader */}
+          {type === 'create' && (
+            <div>
+              <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <FileText style={{ width: 12, height: 12 }} />
+                Load Template
+              </label>
+              <select
+                value={selectedTemplateId}
+                onChange={(e) => void handleApplyTemplate(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Select template...</option>
+                {templates?.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Event Type */}
           <div>
@@ -466,22 +562,37 @@ export const EventModal = () => {
             borderTop: '1px solid rgba(255,255,255,0.05)',
           }}>
             {type === 'edit' ? (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  style={{
+                    padding: '7px 14px', borderRadius: 6, border: 'none',
+                    background: 'rgba(239,68,68,0.08)', color: '#f87171',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+                >
+                  Delete
+                </button>
+              </div>
+            ) : <div />}
+            <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={handleSaveAsTemplate}
                 style={{
-                  padding: '7px 14px', borderRadius: 6, border: 'none',
-                  background: 'rgba(239,68,68,0.08)', color: '#f87171',
+                  padding: '7px 14px', borderRadius: 6,
+                  border: '1px solid rgba(59,130,246,0.35)',
+                  background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
                   fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
               >
-                Delete
+                Save as Template
               </button>
-            ) : <div />}
-            <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
                 onClick={() => { closeModal(); resetForm(); }}

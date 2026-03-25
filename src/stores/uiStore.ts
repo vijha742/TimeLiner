@@ -10,6 +10,7 @@ interface UIStore extends ModalState {
   isSelectingRegion: boolean;
   regionStart: { x: number; date: Date } | null;
   regionEnd: { x: number; date: Date } | null;
+  toggleRegionSelectionMode: () => void;
   startRegionSelection: (x: number, date: Date) => void;
   updateRegionSelection: (x: number, date: Date) => void;
   endRegionSelection: () => void;
@@ -19,9 +20,11 @@ interface UIStore extends ModalState {
   isFilterPanelOpen: boolean;
   isStatsPanelOpen: boolean;
   isNotificationPanelOpen: boolean;
+  isTemplatePanelOpen: boolean;
   toggleFilterPanel: () => void;
   toggleStatsPanel: () => void;
   toggleNotificationPanel: () => void;
+  toggleTemplatePanel: () => void;
   
   // Keyboard shortcuts help
   showShortcutsHelp: boolean;
@@ -50,8 +53,15 @@ export const useUIStore = create<UIStore>((set) => ({
   regionStart: null,
   regionEnd: null,
   
+  toggleRegionSelectionMode: () =>
+    set((state) => ({
+      isSelectingRegion: !state.isSelectingRegion,
+      regionStart: null,
+      regionEnd: null,
+    })),
+  
   startRegionSelection: (x, date) => 
-    set({ isSelectingRegion: true, regionStart: { x, date }, regionEnd: null }),
+    set({ regionStart: { x, date }, regionEnd: null }),
   
   updateRegionSelection: (x, date) => 
     set({ regionEnd: { x, date } }),
@@ -66,6 +76,7 @@ export const useUIStore = create<UIStore>((set) => ({
   isFilterPanelOpen: false,
   isStatsPanelOpen: false,
   isNotificationPanelOpen: false,
+  isTemplatePanelOpen: false,
   
   toggleFilterPanel: () => 
     set((state) => ({ isFilterPanelOpen: !state.isFilterPanelOpen })),
@@ -75,6 +86,9 @@ export const useUIStore = create<UIStore>((set) => ({
   
   toggleNotificationPanel: () =>
     set((state) => ({ isNotificationPanelOpen: !state.isNotificationPanelOpen })),
+  
+  toggleTemplatePanel: () =>
+    set((state) => ({ isTemplatePanelOpen: !state.isTemplatePanelOpen })),
   
   // Shortcuts help
   showShortcutsHelp: false,

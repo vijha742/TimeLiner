@@ -1,5 +1,6 @@
-import { Home, ZoomIn, ZoomOut, Filter, Plus, Download, Upload, Keyboard, X, BarChart3, Bell, Camera, Menu } from 'lucide-react';
+import { Home, ZoomIn, ZoomOut, Filter, Plus, Download, Upload, Keyboard, X, BarChart3, Bell, Camera, Menu, FileText } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useTimelineStore } from '../../stores/timelineStore';
 import { useUIStore } from '../../stores/uiStore';
 import { db } from '../../services/db';
@@ -61,8 +62,9 @@ export const Header = () => {
     toggleNotificationPanel, 
     isNotificationPanelOpen, 
     isSelectingRegion,
-    startRegionSelection,
-    cancelRegionSelection,
+    toggleRegionSelectionMode,
+    toggleTemplatePanel,
+    isTemplatePanelOpen,
     openModal,
     isMobile,
     setIsMobile
@@ -70,6 +72,7 @@ export const Header = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const templateCount = useLiveQuery(async () => db.templates.count(), []);
 
   useEffect(() => {
     // Initialize notification service
@@ -395,18 +398,39 @@ export const Header = () => {
               <div style={{ width: 8 }} />
 
               <IconBtn 
-                onClick={() => {
-                  if (isSelectingRegion) {
-                    cancelRegionSelection();
-                  } else {
-                    startRegionSelection(0, new Date());
-                  }
-                }} 
+                onClick={toggleRegionSelectionMode} 
                 title={isSelectingRegion ? "Cancel selection (Esc)" : "Screenshot region (S)"} 
                 active={isSelectingRegion}
               >
                 {isSelectingRegion ? <X {...iconSize} /> : <Camera {...iconSize} />}
               </IconBtn>
+
+              <div style={{ position: 'relative' }}>
+                <IconBtn onClick={toggleTemplatePanel} title="Event Templates" active={isTemplatePanelOpen}>
+                  <FileText {...iconSize} />
+                </IconBtn>
+                {(templateCount || 0) > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: 14,
+                    height: 14,
+                    padding: '0 4px',
+                    borderRadius: 99,
+                    background: '#3b82f6',
+                    color: '#fff',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    pointerEvents: 'none',
+                  }}>
+                    {templateCount}
+                  </span>
+                )}
+              </div>
 
               <IconBtn onClick={toggleFilterPanel} title="Filters (Ctrl+F)" active={isFilterPanelOpen}>
                 {isFilterPanelOpen ? <X {...iconSize} /> : <Filter {...iconSize} />}
@@ -563,17 +587,35 @@ export const Header = () => {
               </div>
               <MobileMenuItem 
                 onClick={() => {
-                  if (isSelectingRegion) {
-                    cancelRegionSelection();
-                  } else {
-                    startRegionSelection(0, new Date());
-                  }
+                  toggleRegionSelectionMode();
                   setShowMobileMenu(false);
                 }}
                 active={isSelectingRegion}
               >
                 <Camera style={{ width: 16, height: 16 }} />
                 <span>Screenshot Region</span>
+              </MobileMenuItem>
+              <MobileMenuItem onClick={() => { toggleTemplatePanel(); setShowMobileMenu(false); }} active={isTemplatePanelOpen}>
+                <FileText style={{ width: 16, height: 16 }} />
+                <span>Templates</span>
+                {(templateCount || 0) > 0 && (
+                  <span style={{
+                    marginLeft: 'auto',
+                    minWidth: 20,
+                    height: 20,
+                    padding: '0 6px',
+                    borderRadius: 99,
+                    background: '#3b82f6',
+                    color: '#fff',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    {templateCount}
+                  </span>
+                )}
               </MobileMenuItem>
               <input
                 ref={fileInputRef}
